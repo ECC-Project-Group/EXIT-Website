@@ -1,0 +1,30 @@
+{
+  "name": "exit-website",
+  "version": "1.0.0",
+  "description": "The Website for EXIT, the Exeter Informatics Tournament.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ECC-Project-Group/EXIT-Website.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ECC-Project-Group/EXIT-Website/issues"
+  },
+  "homepage": "https://github.com/ECC-Project-Group/EXIT-Website#readme",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@chenglou/pretext": "^0.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}
