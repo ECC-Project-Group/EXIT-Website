@@ -1,26 +1,62 @@
+import { Clerk } from '@clerk/clerk-js';
 import eccLogoUrl from '../ECC Logo with E.svg'
 import { mountNetworkCanvas } from './network-canvas.ts'
 import './style.css'
+
+const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 type Route = '/' | '/schedule' | '/about' | '/register'
 
 type RegistrationPayload = {
   email: string
-  name: string
+  firstName: string
+  lastName: string
   phoneNumber: string
-  mailingAddress: string
-  password: string
-  confirmPassword: string
+  school: string
+  cityStateCountry: string
+  grade: string
+  backgroundLevel: string
   honeypot: string
 }
 
-type RegisterFieldName = keyof Omit<RegistrationPayload, 'honeypot'>
+type RegisterFieldName = keyof Omit<RegistrationPayload, 'honeypot' | 'email'>
 
 type ScheduleRow = {
   time: string
   title: string
   detail: string
   location: string
+}
+
+declare global {
+  interface Window {
+    __internal_ClerkUICtor?: any
+  }
+}
+
+async function instantiateClerk() {
+  if (!publishableKey) {
+    throw new Error("Add your VITE_CLERK_PUBLISHABLE_KEY to the .env file");
+  }
+
+  const clerkDomain = atob(publishableKey.split("_")[2]).slice(0, -1);
+
+  await new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://${clerkDomain}/npm/@clerk/ui@1/dist/ui.browser.js`;
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("Failed to load @clerk/ui bundle"));
+    document.head.appendChild(script);
+  });
+
+  const clerkInstance = new Clerk(publishableKey);
+  await clerkInstance.load({
+    ui: { ClerkUI: window.__internal_ClerkUICtor },
+  });
+
+  return clerkInstance;
 }
 
 const eventSummary = {
@@ -130,6 +166,9 @@ const directors = [
   { name: 'Robert Joo', email: 'sjoo@exeter.edu' }
 ] as const
 
+const gradeOptions = ['6', '7', '8', '9', '10', '11', '12', 'Postgraduate', 'Other'] as const
+const backgroundLevelOptions = ['Beginner', 'Intermediate', 'Advanced', 'Competitive'] as const
+
 const appRoot = document.querySelector<HTMLDivElement>('#app')
 
 if (!appRoot) {
@@ -138,6 +177,10 @@ if (!appRoot) {
 
 const app = appRoot
 let cleanupCanvas: (() => void) | null = null
+let clerk: Clerk | null = null
+let clerkReady = false
+let authActionInFlight = false
+let lastSessionId: string | null = null
 
 function escapeHtml(value: string): string {
   return value
@@ -156,6 +199,80 @@ function getRoute(): Route {
   }
 
   return '/'
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+async function waitForSessionChange(previousSessionId: string | null, timeoutMs = 1600): Promise<string | null> {
+  const intervalMs = 80
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    const nextSessionId = clerk?.session?.id ?? null
+    if (nextSessionId !== previousSessionId) {
+      return nextSessionId
+    }
+
+    await wait(intervalMs)
+  }
+
+  return clerk?.session?.id ?? null
+}
+
+async function waitForSignedInState(timeoutMs = 2400): Promise<void> {
+  const intervalMs = 80
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    if (clerk?.session?.id && clerk.user) {
+      return
+    }
+
+    await wait(intervalMs)
+  }
+}
+
+function getSignedInEmail(): string | null {
+  const primaryEmail = clerk?.user?.primaryEmailAddress?.emailAddress
+  if (primaryEmail) {
+    return primaryEmail
+  }
+
+  const fallbackEmail = clerk?.user?.emailAddresses?.[0]?.emailAddress
+  return fallbackEmail ?? null
+}
+
+async function performAuthAction() {
+  if (!clerk || authActionInFlight) {
+    return
+  }
+
+  authActionInFlight = true
+  renderApp()
+
+  try {
+    if (clerk.user) {
+      await clerk.signOut()
+    } else {
+      const sessionIdBeforeAction = clerk.session?.id ?? null
+      await clerk.openSignIn()
+      const nextSessionId = await waitForSessionChange(sessionIdBeforeAction)
+      const didSignIn = sessionIdBeforeAction === null && nextSessionId !== null
+
+      if (didSignIn) {
+        await waitForSignedInState()
+      }
+    }
+  } catch (error) {
+    console.error('Auth action failed', error)
+  } finally {
+    authActionInFlight = false
+    renderApp()
+  }
 }
 
 function navLink(route: Route, label: string, currentRoute: Route): string {
@@ -284,6 +401,43 @@ function renderAboutPage(): string {
 }
 
 function renderRegisterPage(): string {
+  const isSignedIn = Boolean(clerk?.user)
+  const signedInEmail = getSignedInEmail()
+
+  if (!isSignedIn) {
+    return `
+      <section class="page-intro">
+        <p class="section-label">Register</p>
+        <h1>Sign Up</h1>
+        <p class="page-copy">
+          Sign in first to continue with coach registration.
+        </p>
+      </section>
+
+      <section class="register-grid">
+        <section class="panel panel-feature">
+          <p class="section-label">Registration Details</p>
+          <h2>Coach account registration.</h2>
+          <p class="punch">
+            Registration is tied to your signed-in account so your email is captured automatically.
+          </p>
+        </section>
+
+        <section class="panel panel-accent register-form-panel" aria-label="Sign in required">
+          <p class="punch">Please sign in before filling out registration.</p>
+          <div class="actions">
+            <button
+              id="register-signin-button"
+              class="button button-primary"
+              type="button"
+              ${!clerkReady || authActionInFlight ? 'disabled' : ''}
+            >${clerkReady ? 'Sign in to continue' : 'Auth loading...'}</button>
+          </div>
+        </section>
+      </section>
+    `
+  }
+
   return `
     <section class="page-intro">
       <p class="section-label">Register</p>
@@ -302,20 +456,20 @@ function renderRegisterPage(): string {
           If your school is not participating and you would like to participate as an individual,
           your parent or guardian can sign up as your coach.
         </p>
-        <p class="register-login-text">Already have an account? You can <a href="#">log in here</a>.</p>
+        <p class="register-login-text">Signed in as ${escapeHtml(signedInEmail ?? '')}.</p>
       </section>
 
       <section class="panel panel-accent register-form-panel" aria-label="Registration form">
         <form id="register-form" novalidate>
           <div class="form-stack">
             <div class="field-wrap">
-              <input class="field" type="email" name="email" placeholder="Email *" autocomplete="email" required />
-              <p class="error-msg" data-error-for="email"></p>
+              <input class="field" type="text" name="firstName" placeholder="First Name *" autocomplete="given-name" required />
+              <p class="error-msg" data-error-for="firstName"></p>
             </div>
 
             <div class="field-wrap">
-              <input class="field" type="text" name="name" placeholder="Name *" autocomplete="name" required />
-              <p class="error-msg" data-error-for="name"></p>
+              <input class="field" type="text" name="lastName" placeholder="Last Name *" autocomplete="family-name" required />
+              <p class="error-msg" data-error-for="lastName"></p>
             </div>
 
             <div class="field-wrap">
@@ -324,18 +478,29 @@ function renderRegisterPage(): string {
             </div>
 
             <div class="field-wrap">
-              <input class="field" type="text" name="mailingAddress" placeholder="Mailing Address *" autocomplete="street-address" required />
-              <p class="error-msg" data-error-for="mailingAddress"></p>
+              <input class="field" type="text" name="school" placeholder="School *" autocomplete="organization" required />
+              <p class="error-msg" data-error-for="school"></p>
             </div>
 
             <div class="field-wrap">
-              <input class="field" type="password" name="password" placeholder="Password *" autocomplete="new-password" required />
-              <p class="error-msg" data-error-for="password"></p>
+              <input class="field" type="text" name="cityStateCountry" placeholder="City, State/Province, Country *" autocomplete="address-level2" required />
+              <p class="error-msg" data-error-for="cityStateCountry"></p>
             </div>
 
             <div class="field-wrap">
-              <input class="field" type="password" name="confirmPassword" placeholder="Confirm Password *" autocomplete="new-password" required />
-              <p class="error-msg" data-error-for="confirmPassword"></p>
+              <select class="field" name="grade" required>
+                <option value="">Grade *</option>
+                ${gradeOptions.map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}
+              </select>
+              <p class="error-msg" data-error-for="grade"></p>
+            </div>
+
+            <div class="field-wrap">
+              <select class="field" name="backgroundLevel" required>
+                <option value="">Background Level *</option>
+                ${backgroundLevelOptions.map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}
+              </select>
+              <p class="error-msg" data-error-for="backgroundLevel"></p>
             </div>
 
             <input type="text" name="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" hidden />
@@ -360,14 +525,12 @@ function normalizePhone(value: string): string {
 function validateRegistration(payload: RegistrationPayload): Partial<Record<RegisterFieldName, string>> {
   const errors: Partial<Record<RegisterFieldName, string>> = {}
 
-  if (!payload.email.trim()) {
-    errors.email = 'Email is required.'
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
-    errors.email = 'Enter a valid email address.'
+  if (!payload.firstName.trim()) {
+    errors.firstName = 'First name is required.'
   }
 
-  if (!payload.name.trim()) {
-    errors.name = 'Name is required.'
+  if (!payload.lastName.trim()) {
+    errors.lastName = 'Last name is required.'
   }
 
   if (!payload.phoneNumber.trim()) {
@@ -376,20 +539,20 @@ function validateRegistration(payload: RegistrationPayload): Partial<Record<Regi
     errors.phoneNumber = 'Enter a valid phone number.'
   }
 
-  if (!payload.mailingAddress.trim()) {
-    errors.mailingAddress = 'Mailing address is required.'
+  if (!payload.school.trim()) {
+    errors.school = 'School is required.'
   }
 
-  if (!payload.password) {
-    errors.password = 'Password is required.'
-  } else if (payload.password.length < 8) {
-    errors.password = 'Use at least 8 characters.'
+  if (!payload.cityStateCountry.trim()) {
+    errors.cityStateCountry = 'City, state/province, and country are required.'
   }
 
-  if (!payload.confirmPassword) {
-    errors.confirmPassword = 'Please confirm your password.'
-  } else if (payload.password !== payload.confirmPassword) {
-    errors.confirmPassword = 'Passwords do not match.'
+  if (!payload.grade.trim()) {
+    errors.grade = 'Grade is required.'
+  }
+
+  if (!payload.backgroundLevel.trim()) {
+    errors.backgroundLevel = 'Background level is required.'
   }
 
   return errors
@@ -407,16 +570,17 @@ function setupRegisterForm() {
   const registerStatusNode = statusNode
 
   const fields: RegisterFieldName[] = [
-    'email',
-    'name',
+    'firstName',
+    'lastName',
     'phoneNumber',
-    'mailingAddress',
-    'password',
-    'confirmPassword'
+    'school',
+    'cityStateCountry',
+    'grade',
+    'backgroundLevel'
   ]
 
   function setFieldError(name: RegisterFieldName, message?: string) {
-    const input = registerForm.elements.namedItem(name) as HTMLInputElement | null
+    const input = registerForm.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null
     const msg = registerForm.querySelector<HTMLParagraphElement>(`[data-error-for="${name}"]`)
 
     if (!input || !msg) {
@@ -427,7 +591,7 @@ function setupRegisterForm() {
     msg.textContent = message ?? ''
   }
 
-  function setStatus(message: string, kind: 'idle' | 'success' | 'error') {
+  function setStatus(message: string, kind: 'idle' | 'success' | 'warning' | 'error') {
     registerStatusNode.textContent = message
     registerStatusNode.dataset.kind = kind
   }
@@ -442,14 +606,22 @@ function setupRegisterForm() {
     }
 
     const formData = new FormData(registerForm)
+    const signedInEmail = getSignedInEmail()
+
+    if (!signedInEmail) {
+      setStatus('Please sign in before submitting registration.', 'error')
+      return
+    }
 
     const payload: RegistrationPayload = {
-      email: String(formData.get('email') ?? '').trim(),
-      name: String(formData.get('name') ?? '').trim(),
+      email: signedInEmail,
+      firstName: String(formData.get('firstName') ?? '').trim(),
+      lastName: String(formData.get('lastName') ?? '').trim(),
       phoneNumber: normalizePhone(String(formData.get('phoneNumber') ?? '')),
-      mailingAddress: String(formData.get('mailingAddress') ?? '').trim(),
-      password: String(formData.get('password') ?? ''),
-      confirmPassword: String(formData.get('confirmPassword') ?? ''),
+      school: String(formData.get('school') ?? '').trim(),
+      cityStateCountry: String(formData.get('cityStateCountry') ?? '').trim(),
+      grade: String(formData.get('grade') ?? '').trim(),
+      backgroundLevel: String(formData.get('backgroundLevel') ?? '').trim(),
       honeypot: String(formData.get('honeypot') ?? '')
     }
 
@@ -483,13 +655,24 @@ function setupRegisterForm() {
         body: JSON.stringify(payload)
       })
 
+      const body = (await response.json().catch(() => null)) as {
+        error?: string
+        emailSent?: boolean
+        emailError?: string
+      } | null
+
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
         throw new Error(body?.error ?? 'Registration failed. Please try again.')
       }
 
       registerForm.reset()
-      setStatus('Registration submitted successfully. Please check your email.', 'success')
+
+      if (body?.emailSent === false) {
+        const technicalDetail = body.emailError?.trim() ? ` Technical detail: ${body.emailError.trim()}` : ''
+        setStatus(`Registration was saved, but confirmation email delivery failed.${technicalDetail}`, 'warning')
+      } else {
+        setStatus('Registration submitted successfully. Please check your email.', 'success')
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unexpected error. Please try again.'
       setStatus(message, 'error')
@@ -503,6 +686,14 @@ function setupRegisterForm() {
 function renderApp() {
   const currentRoute = getRoute()
   const hasGraph = currentRoute === '/'
+  const isSignedIn = Boolean(clerk?.user)
+  const authButtonLabel = !clerkReady
+    ? 'Auth...'
+    : authActionInFlight
+      ? 'Working...'
+      : isSignedIn
+        ? 'Sign out'
+        : 'Sign in'
   const page =
     currentRoute === '/schedule'
       ? renderSchedulePage()
@@ -531,6 +722,12 @@ function renderApp() {
           ${navLink('/schedule', 'Schedule', currentRoute)}
           ${navLink('/about', 'About Us', currentRoute)}
           ${navLink('/register', 'Register', currentRoute)}
+          <button
+            id="auth-button"
+            class="button button-secondary"
+            type="button"
+            ${!clerkReady || authActionInFlight ? 'disabled' : ''}
+          >${authButtonLabel}</button>
         </nav>
       </header>
 
@@ -549,8 +746,43 @@ function renderApp() {
 
   if (currentRoute === '/register') {
     setupRegisterForm()
+
+    const registerSignInButton = document.querySelector<HTMLButtonElement>('#register-signin-button')
+    if (registerSignInButton) {
+      registerSignInButton.addEventListener('click', () => {
+        void performAuthAction()
+      })
+    }
+  }
+
+  const authButton = document.querySelector<HTMLButtonElement>('#auth-button')
+  if (authButton) {
+    authButton.addEventListener('click', () => {
+      void performAuthAction()
+    })
   }
 }
 
 renderApp()
+
+instantiateClerk()
+  .then(clerkInstance => {
+    clerk = clerkInstance
+    clerkReady = true
+    lastSessionId = clerk.session?.id ?? null
+    clerk.addListener(() => {
+      const nextSessionId = clerk?.session?.id ?? null
+
+      if (nextSessionId !== lastSessionId) {
+        lastSessionId = nextSessionId
+      }
+
+      renderApp()
+    })
+    renderApp()
+  })
+  .catch(error => {
+    console.error('Failed to initialize Clerk', error)
+  })
+
 window.addEventListener('hashchange', renderApp)

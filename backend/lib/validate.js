@@ -1,22 +1,82 @@
 import { z } from 'zod'
 
+const gradeOptions = ['6', '7', '8', '9', '10', '11', '12', 'Postgraduate', 'Other']
+const backgroundLevelOptions = ['Beginner', 'Intermediate', 'Advanced', 'Competitive']
+
 const registrationSchema = z
   .object({
     email: z.string().trim().email(),
-    name: z.string().trim().min(1).max(120),
+    firstName: z.string().trim().max(80).optional(),
+    lastName: z.string().trim().max(80).optional(),
+    name: z.string().trim().max(160).optional(),
     phoneNumber: z.string().trim().min(7).max(40),
-    mailingAddress: z.string().trim().min(3).max(240),
-    password: z.string().min(8).max(100),
-    confirmPassword: z.string().min(8).max(100),
+    school: z.string().trim().max(140).optional(),
+    cityStateCountry: z.string().trim().max(240).optional(),
+    grade: z.enum(gradeOptions).optional(),
+    backgroundLevel: z.enum(backgroundLevelOptions).optional(),
+    mailingAddress: z.string().trim().max(240).optional(),
+    password: z.string().optional(),
+    confirmPassword: z.string().optional(),
     honeypot: z.string().optional().default('')
   })
   .superRefine((value, ctx) => {
-    if (value.password !== value.confirmPassword) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['confirmPassword'],
-        message: 'Passwords do not match.'
-      })
+    const hasFirstName = Boolean(value.firstName?.trim())
+    const hasLastName = Boolean(value.lastName?.trim())
+    const hasLegacyName = Boolean(value.name?.trim())
+    const hasLegacyAddress = Boolean(value.mailingAddress?.trim())
+    const hasLegacyPasswordFields = Boolean(value.password || value.confirmPassword)
+    const isLegacyShape = hasLegacyAddress || hasLegacyPasswordFields
+
+    if (!hasLegacyName && (!hasFirstName || !hasLastName)) {
+      if (!hasFirstName) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['firstName'],
+          message: 'First name is required.'
+        })
+      }
+
+      if (!hasLastName) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['lastName'],
+          message: 'Last name is required.'
+        })
+      }
+    }
+
+    if (!isLegacyShape) {
+      if (!value.school?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['school'],
+          message: 'School is required.'
+        })
+      }
+
+      if (!value.cityStateCountry?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['cityStateCountry'],
+          message: 'City, state/province, and country are required.'
+        })
+      }
+
+      if (!value.grade) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['grade'],
+          message: 'Grade is required.'
+        })
+      }
+
+      if (!value.backgroundLevel) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['backgroundLevel'],
+          message: 'Background level is required.'
+        })
+      }
     }
   })
 
@@ -32,16 +92,28 @@ export function parseRegistrationInput(input) {
   }
 
   const normalizedPhone = parsed.data.phoneNumber.replace(/[^\d+\-()\s]/g, '').replace(/\s+/g, ' ').trim()
+  const legacyNameParts = (parsed.data.name ?? '').trim().split(/\s+/).filter(Boolean)
+  const fallbackFirstName = legacyNameParts[0] ?? ''
+  const fallbackLastName = legacyNameParts.slice(1).join(' ')
+  const normalizedFirstName = parsed.data.firstName?.trim() || fallbackFirstName
+  const normalizedLastName = parsed.data.lastName?.trim() || fallbackLastName
+  const isLegacyShape = Boolean(parsed.data.mailingAddress?.trim()) || Boolean(parsed.data.password || parsed.data.confirmPassword)
+  const normalizedSchool = parsed.data.school?.trim() || (isLegacyShape ? 'Legacy Submission' : '')
+  const normalizedCityStateCountry = parsed.data.cityStateCountry?.trim() || parsed.data.mailingAddress?.trim() || ''
+  const normalizedGrade = parsed.data.grade || (isLegacyShape ? 'Other' : '')
+  const normalizedBackgroundLevel = parsed.data.backgroundLevel || (isLegacyShape ? 'Beginner' : '')
 
   return {
     ok: true,
     value: {
       email: parsed.data.email,
-      name: parsed.data.name,
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
       phoneNumber: normalizedPhone,
-      mailingAddress: parsed.data.mailingAddress,
-      password: parsed.data.password,
-      confirmPassword: parsed.data.confirmPassword,
+      school: normalizedSchool,
+      cityStateCountry: normalizedCityStateCountry,
+      grade: normalizedGrade,
+      backgroundLevel: normalizedBackgroundLevel,
       honeypot: parsed.data.honeypot
     }
   }

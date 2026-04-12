@@ -5,7 +5,8 @@
   "type": "module",
   "dependencies": {
     "googleapis": "^154.0.0",
-    "resend": "^4.8.0",
+    "nodemailer": "^8.0.5",
+    "resend": "^6.10.0",
     "zod": "^3.24.2"
   }
 }

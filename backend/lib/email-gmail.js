@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
 function getRequiredEnv(name) {
   const value = process.env[name]
@@ -9,10 +9,18 @@ function getRequiredEnv(name) {
 }
 
 export async function sendConfirmationEmail(registration) {
-  const apiKey = getRequiredEnv('RESEND_API_KEY')
-  const from = getRequiredEnv('RESEND_FROM_EMAIL')
+  const user = getRequiredEnv('GMAIL_USER')
+  const appPassword = getRequiredEnv('GMAIL_APP_PASSWORD')
+  const from = process.env.GMAIL_FROM_EMAIL || user
 
-  const resend = new Resend(apiKey)
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user,
+      pass: appPassword
+    }
+  })
+
   const fullName = [registration.firstName, registration.lastName]
     .map(value => String(value ?? '').trim())
     .filter(Boolean)
@@ -33,7 +41,7 @@ export async function sendConfirmationEmail(registration) {
     'EXIT Team'
   ].join('\n')
 
-  const result = await resend.emails.send({
+  const result = await transporter.sendMail({
     from,
     to: registration.email,
     subject,
@@ -41,10 +49,14 @@ export async function sendConfirmationEmail(registration) {
     html: `<p>Hi ${fullName},</p><p>We received your EXIT coach registration submission.</p><p><strong>School:</strong> ${registration.school}<br/><strong>Location:</strong> ${registration.cityStateCountry}<br/><strong>Grade:</strong> ${registration.grade}<br/><strong>Background Level:</strong> ${registration.backgroundLevel}</p><p>Our team will review your registration and follow up if needed.</p><p>Thank you,<br/>EXIT Team</p>`
   })
 
-  if (result?.error) {
-    const providerMessage = typeof result.error.message === 'string'
-      ? result.error.message
-      : 'Unknown email provider error.'
-    throw new Error(`Resend: ${providerMessage}`)
+  const accepted = Array.isArray(result.accepted) ? result.accepted : []
+  const rejected = Array.isArray(result.rejected) ? result.rejected : []
+
+  if (accepted.length === 0 || rejected.length > 0) {
+    const rejectedList = rejected.map(value => String(value)).join(', ')
+    if (rejectedList) {
+      throw new Error(`Gmail rejected recipients: ${rejectedList}`)
+    }
+    throw new Error('Gmail did not accept the recipient.')
   }
 }

@@ -13,6 +13,7 @@ export async function sendConfirmationEmail(registration) {
   const from = getRequiredEnv('RESEND_FROM_EMAIL')
 
   const resend = new Resend(apiKey)
+
   const fullName = [registration.firstName, registration.lastName]
     .map(value => String(value ?? '').trim())
     .filter(Boolean)

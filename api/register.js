@@ -1,5 +1,5 @@
 import { appendRegistrationRow } from '../backend/lib/sheets.js'
-import { sendConfirmationEmail } from '../backend/lib/email.js'
+import { sendConfirmationEmail } from '../backend/lib/email-resend.js'
 import { parseRegistrationInput } from '../backend/lib/validate.js'
 
 function json(res, status, body) {
@@ -7,12 +7,69 @@ function json(res, status, body) {
   res.send(JSON.stringify(body))
 }
 
-function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for']
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0]?.trim() || ''
+function getHeaderValue(headers, name) {
+  const value = headers[name]
+  if (Array.isArray(value)) {
+    return value[0] ?? ''
   }
-  return req.socket?.remoteAddress || ''
+  return typeof value === 'string' ? value : ''
+}
+
+function normalizeIp(value) {
+  let normalized = value.trim()
+
+  if (!normalized) {
+    return ''
+  }
+
+  if (normalized.includes(',')) {
+    normalized = normalized.split(',')[0]?.trim() || ''
+  }
+
+  if (normalized.startsWith('[') && normalized.endsWith(']')) {
+    normalized = normalized.slice(1, -1)
+  }
+
+  if (normalized.startsWith('::ffff:')) {
+    normalized = normalized.slice(7)
+  }
+
+  if (normalized === '::1') {
+    return '127.0.0.1'
+  }
+
+  if (normalized.includes('.') && normalized.includes(':')) {
+    const lastColon = normalized.lastIndexOf(':')
+    const lastDot = normalized.lastIndexOf('.')
+    if (lastColon > lastDot) {
+      normalized = normalized.slice(0, lastColon)
+    }
+  }
+
+  return normalized
+}
+
+function isLoopbackIp(value) {
+  return value === '127.0.0.1' || value.startsWith('127.') || value === 'localhost' || value === '::1'
+}
+
+function getClientIp(req) {
+  const headerCandidates = [
+    'x-forwarded-for',
+    'x-real-ip',
+    'cf-connecting-ip',
+    'true-client-ip',
+    'x-client-ip',
+    'x-vercel-forwarded-for'
+  ]
+    .map(name => normalizeIp(getHeaderValue(req.headers, name)))
+    .filter(Boolean)
+
+  const socketIp = normalizeIp(req.socket?.remoteAddress || '')
+  const candidates = [...headerCandidates, socketIp].filter(Boolean)
+  const nonLoopback = candidates.find(ip => !isLoopbackIp(ip))
+
+  return nonLoopback || candidates[0] || ''
 }
 
 export default async function handler(req, res) {
@@ -43,16 +100,23 @@ export default async function handler(req, res) {
     const sheetResult = await appendRegistrationRow(registration)
 
     let emailSent = true
+    let emailError = ''
     try {
       await sendConfirmationEmail(registration)
-    } catch {
+    } catch (error) {
       emailSent = false
+      emailError = error instanceof Error ? error.message : 'Email delivery failed.'
+      console.error('Failed to send confirmation email', {
+        email: registration.email,
+        message: emailError
+      })
     }
 
     return json(res, 200, {
       ok: true,
       storedAt: sheetResult.timestamp,
-      emailSent
+      emailSent,
+      ...(emailError ? { emailError } : {})
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected server error.'

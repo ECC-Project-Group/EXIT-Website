@@ -253,6 +253,7 @@ ul {
   padding: 0 18px;
   border: 1px solid transparent;
   border-radius: 999px;
+  font-family: inherit;
   font-size: 0.94rem;
   font-weight: 700;
   transition:
@@ -287,6 +288,16 @@ ul {
 .button-secondary:hover {
   border-color: var(--ink-faint);
   color: var(--ink);
+}
+
+#auth-button:hover {
+  transform: none;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .home-sections-grid,
@@ -367,6 +378,10 @@ ul {
 
 .status[data-kind='success'] {
   color: #067647;
+}
+
+.status[data-kind='warning'] {
+  color: #b54708;
 }
 
 .status[data-kind='error'] {
