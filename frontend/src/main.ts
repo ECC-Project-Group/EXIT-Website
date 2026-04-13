@@ -64,7 +64,7 @@ const eventSummary = {
   shortName: 'EXIT',
   date: 'May 10, 2026',
   venue: 'Online',
-  city: 'Hosted by ECC'
+  city: 'Hosted by the Exeter Computing Club'
 } as const
 
 const schedule: readonly ScheduleRow[] = [
@@ -379,23 +379,25 @@ function renderAboutPage(): string {
       </p>
     </section>
 
-    <section class="detail-grid">
-      <section class="panel panel-accent">
-        <p class="section-label">Organization</p>
-        <h2>What we are building.</h2>
-        <p class="punch">
-          We want EXIT to be a clean, well-run informatics event: approachable for first-time competitors,
-          but still interesting for students who already enjoy algorithms and contest math.
-        </p>
-      </section>
+    <section class="panel panel-accent">
+      <p class="section-label">Exeter Computing Club</p>
+      <h2>The club behind EXIT</h2>
+      <p class="punch">
+        We are PEA's CS club, open to all students regardless of experience. We do ML discussions, competitive programming practice (USACO), project building, and more—if you're looking for collaborators, a hackathon team, or just people to talk about code with, come find us.
+      </p>
+      <p class="punch">
+        One example of what we build:
+        <a href="https://exetercoursemap.vercel.app/" target="_blank" rel="noopener noreferrer">Exeter Course Map</a>
+        —browse 450+ courses, see prerequisite maps, and find classes you can actually take.
+      </p>
+    </section>
 
-      <section class="panel">
-        <p class="section-label">Directors</p>
-        <h2>Tournament directors</h2>
-        <div class="people-grid">
-          ${renderDirectors()}
-        </div>
-      </section>
+    <section class="panel">
+      <p class="section-label">Directors</p>
+      <h2>Tournament directors</h2>
+      <div class="people-grid">
+        ${renderDirectors()}
+      </div>
     </section>
   `
 }
