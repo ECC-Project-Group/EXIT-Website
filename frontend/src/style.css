@@ -50,9 +50,16 @@ html {
   scroll-behavior: smooth;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: clip;
   background: var(--bg);
 }
 
@@ -108,7 +115,10 @@ ul {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 var(--pad-x-end) 0 var(--pad-x);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: calc(var(--pad-x-end) + env(safe-area-inset-right, 0px));
+  padding-bottom: 0;
+  padding-left: calc(var(--pad-x) + env(safe-area-inset-left, 0px));
 }
 
 .site-header {
@@ -146,6 +156,11 @@ ul {
   min-width: 0;
 }
 
+.brand-copy strong,
+.brand-copy span {
+  overflow-wrap: anywhere;
+}
+
 .brand-copy strong {
   font-family: var(--font-display);
   font-size: 0.98rem;
@@ -171,14 +186,18 @@ ul {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+  overscroll-behavior-x: contain;
 }
 
 .nav-link {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--ink-muted);
-  padding: 2px 0;
+  min-height: 40px;
+  padding: 4px 0;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
 }
@@ -217,6 +236,7 @@ ul {
 /* One reading column width for every route */
 .main-inner {
   width: 100%;
+  min-width: 0;
   max-width: var(--content-max);
   margin-left: auto;
   margin-right: auto;
@@ -224,7 +244,8 @@ ul {
 
 /* ——— Landing (home) ——— */
 .landing {
-  max-width: 44rem;
+  width: 100%;
+  max-width: min(44rem, 100%);
   margin-left: auto;
   margin-right: auto;
   padding: 0 0 var(--space-8);
@@ -266,7 +287,7 @@ ul {
 
 .landing-meta-block {
   margin: var(--space-6) auto 0;
-  max-width: 24rem;
+  max-width: min(24rem, 100%);
   text-align: center;
   padding: var(--space-4) var(--space-5);
   border-left: 3px solid var(--accent);
@@ -287,7 +308,7 @@ ul {
 
 .landing-hook {
   margin: var(--space-6) auto 0;
-  max-width: 30rem;
+  max-width: min(30rem, 100%);
   font-family: var(--font-body);
   font-size: clamp(1.02rem, 2.1vw, 1.2rem);
   font-weight: 500;
@@ -299,7 +320,7 @@ ul {
 
 .landing-lead {
   margin: var(--space-5) auto 0;
-  max-width: 32rem;
+  max-width: min(32rem, 100%);
   color: var(--ink-muted);
   font-size: 0.95rem;
   line-height: 1.58;
@@ -778,7 +799,10 @@ ul {
 .site-footer {
   flex-shrink: 0;
   width: 100%;
-  padding: var(--space-5) clamp(16px, 4vw, 40px) var(--space-4);
+  padding-top: var(--space-5);
+  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px));
+  padding-left: max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px));
   border-top: 1px solid var(--footer-border);
   background: var(--footer-bg);
   color: var(--footer-link);
@@ -931,14 +955,54 @@ ul {
     font-size: 16px;
   }
 
+  .page-content {
+    margin-top: var(--space-6);
+    padding-bottom: var(--space-8);
+  }
+
+  .page-content:has(.landing) {
+    margin-top: var(--space-6);
+  }
+
   .page-shell {
-    width: min(100% - 24px, 1180px);
-    --pad-x: clamp(10px, 3vw, 20px);
-    --pad-x-end: clamp(10px, 3vw, 20px);
+    width: min(1180px, calc(100% - 16px));
+    --pad-x: clamp(12px, 4vw, 20px);
+    --pad-x-end: clamp(12px, 4vw, 20px);
+  }
+
+  .site-header {
+    flex-wrap: wrap;
+    row-gap: var(--space-3);
+    column-gap: var(--space-3);
+    align-items: flex-start;
+  }
+
+  .brand {
+    flex: 1 1 min(0, 100%);
+    min-width: 0;
+  }
+
+  .site-nav {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    row-gap: var(--space-2);
+    column-gap: var(--space-3);
+    overflow-x: visible;
+    padding-bottom: 2px;
   }
 
   .main-inner {
     max-width: 100%;
+  }
+
+  .sheet-panel {
+    padding: var(--space-5) var(--space-4);
+  }
+
+  /* Avoid iOS Safari zooming focused inputs (needs ≥16px) */
+  .field {
+    font-size: 1rem;
   }
 
   .site-footer-inner {
@@ -966,11 +1030,34 @@ ul {
 
   .nav-link {
     font-size: 0.82rem;
+    min-height: 44px;
+    padding: 6px 2px;
   }
 
   .nav-auth {
-    min-height: 36px;
-    padding: 0 10px;
+    margin-left: 0;
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 0.78rem;
+  }
+
+  .landing-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-actions .link-button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .site-nav {
+    column-gap: var(--space-2);
+  }
+
+  .nav-link {
     font-size: 0.78rem;
   }
 }
