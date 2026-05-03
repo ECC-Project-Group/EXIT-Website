@@ -66,7 +66,7 @@ const contestContactEmail = 'exeterecc@gmail.com'
 const socialLinks: readonly { brand: string; label: string; href: string }[] = [
   { brand: 'discord', label: 'Discord', href: 'https://discord.gg/' },
   { brand: 'github', label: 'GitHub', href: 'https://github.com/ECC-Project-Group' },
-  { brand: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/' },
+  { brand: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/peacomputingclub/' },
   { brand: 'youtube', label: 'YouTube', href: 'https://www.youtube.com/' }
 ] as const
 
