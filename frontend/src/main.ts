@@ -1,11 +1,10 @@
 import { Clerk } from '@clerk/clerk-js';
 import eccLogoUrl from '../ECC Logo with E.svg'
-import { mountNetworkCanvas } from './network-canvas.ts'
 import './style.css'
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-type Route = '/' | '/schedule' | '/about' | '/register'
+type Route = '/' | '/info' | '/schedule' | '/about' | '/register'
 
 type RegistrationPayload = {
   email: string
@@ -20,13 +19,6 @@ type RegistrationPayload = {
 }
 
 type RegisterFieldName = keyof Omit<RegistrationPayload, 'honeypot' | 'email'>
-
-type ScheduleRow = {
-  time: string
-  title: string
-  detail: string
-  location: string
-}
 
 declare global {
   interface Window {
@@ -62,108 +54,129 @@ async function instantiateClerk() {
 const eventSummary = {
   name: 'Exeter Informatics Tournament',
   shortName: 'EXIT',
-  date: 'May 10, 2026',
-  venue: 'Online',
-  city: 'Hosted by the Exeter Computing Club'
+  date: 'October 7, 2026',
+  venue: 'Online and in person',
+  location: 'Phillips Exeter Academy',
+  club: 'Exeter Computing Club'
 } as const
 
-const schedule: readonly ScheduleRow[] = [
-  {
-    time: '8:30 - 9:00',
-    title: 'Check-in',
-    detail: 'Platform check, account access, and final setup.',
-    location: 'Online'
-  },
-  {
-    time: '9:00 - 9:20',
-    title: 'Welcome + rules',
-    detail: 'Opening remarks, format overview, and contest logistics.',
-    location: 'Livestream'
-  },
-  {
-    time: '9:30 - 10:45',
-    title: 'Individual round',
-    detail: '6 problems solved solo.',
-    location: 'Contest platform'
-  },
-  {
-    time: '10:45 - 11:00',
-    title: 'Break',
-    detail: 'Short reset before the team round begins.',
-    location: 'Online'
-  },
-  {
-    time: '11:00 - 12:30',
-    title: 'Team round',
-    detail: '8 problems solved collaboratively.',
-    location: 'Contest platform'
-  },
-  {
-    time: '12:30 - 1:15',
-    title: 'Break + judging',
-    detail: 'Short intermission while submissions are reviewed.',
-    location: 'Online'
-  },
-  {
-    time: '1:15 - 2:00',
-    title: 'Community session',
-    detail: 'Optional post-contest discussion and closing announcements.',
-    location: 'Livestream'
-  },
-  {
-    time: '2:15 - 3:00',
-    title: 'Awards + closing',
-    detail: 'Team and individual recognition, then wrap-up.',
-    location: 'Livestream'
-  }
-] as const
+const contestContactEmail = 'exeterecc@gmail.com'
 
-const homeSections = [
+type HomeContentBlock =
+  | { type: 'paragraph'; text: string }
+  | { type: 'list'; items: readonly string[] }
+
+type HomeSection = {
+  label: string
+  title: string
+  blocks: readonly HomeContentBlock[]
+}
+
+const homeSections: readonly HomeSection[] = [
   {
     label: 'General Information',
-    title: 'Online and accessible.',
-    body:
-      'EXIT will be run online. Competitors can participate remotely, and all contest communication, announcements, and logistics will happen through the online event platform and organizer channels.',
-    items: [
-      'Open to middle and high school competitors',
-      'Hosted by the Exeter Computing Club',
-      'All times and announcements will be posted online'
+    title: 'About EXIT',
+    blocks: [
+      {
+        type: 'paragraph',
+        text:
+          'The Exeter Informatics Tournament (EXIT) is an annual competitive programming contest for middle school and high school students. The event is offered both online and in person at Phillips Exeter Academy. The 2026 EXIT is on October 7, 2026.'
+      }
+    ]
+  },
+  {
+    label: 'Eligibility',
+    title: 'Who may compete',
+    blocks: [
+      {
+        type: 'paragraph',
+        text:
+          'Students through twelfth grade may participate. Middle school students are especially welcome.'
+      }
+    ]
+  },
+  {
+    label: 'Teams',
+    title: 'Individual and team registration',
+    blocks: [
+      {
+        type: 'paragraph',
+        text:
+          'EXIT is structured around an individual round and a team round (see Format). Most students compete on a team of up to four. If a student does not have a team, a parent or coach may register them as an "individual."'
+      },
+      {
+        type: 'paragraph',
+        text:
+          'Individuals will be placed on a team before the contest—either with a registered team that has fewer than four students, or on a new team made up of other individuals. If you coach a team with fewer than four students and prefer not to have additional individuals assigned, contact us and we will do our best to accommodate you.'
+      }
     ]
   },
   {
     label: 'Format',
-    title: 'Two rounds.',
-    body:
-      'The contest has one individual round followed by one team round. The individual round is solved alone; the team round is solved collaboratively with your registered teammates.',
-    items: ['Individual round: 6 problems', 'Team round: 8 problems', 'Awards and closing after judging']
+    title: 'Rounds and problem style',
+    blocks: [
+      {
+        type: 'paragraph',
+        text:
+          'EXIT includes an individual round followed by a team round. Problem counts, time limits, and platform details for 2026 are still being finalized. Within each round, problems are generally ordered by increasing difficulty.'
+      },
+      {
+        type: 'paragraph',
+        text:
+          'Past materials and archives may be linked here as they become available. Final round specifications will be posted before contest day.'
+      }
+    ]
   },
   {
-    label: 'Scoring',
-    title: 'Scoring is still being finalized.',
-    body:
-      'The exact scoring system is TBD. We will publish the final scoring details before the contest begins so competitors know how individual and team standings will be determined.',
-    items: ['Scoring: TBD', 'Final details will be announced before the contest', 'Separate individual and team recognition is expected']
+    label: 'Scoring and Tie-Breaking',
+    title: 'How results are determined',
+    blocks: [
+      {
+        type: 'paragraph',
+        text:
+          'Exact point values and weights for 2026 are TBD. In general, an individual score will reflect performance on the individual round, and team sweepstakes will combine individual results with the team round. We will publish full scoring rules before the event.'
+      },
+      {
+        type: 'paragraph',
+        text:
+          'If ties occur, tie-breaking procedures will be announced with the final rules. Organizer decisions on scoring and ties are final.'
+      }
+    ]
   },
   {
     label: 'Rules',
-    title: 'Standard contest expectations.',
-    body:
-      'The rules will follow standard competitive programming norms, similar in spirit to Codeforces-style contests, with a few important basics highlighted below.',
-    items: [
-      'No AI tools, code generation tools, or outside assistance',
-      'No collaboration during the individual round',
-      'During the team round, work only with your registered teammates',
-      'Do not share problems, solutions, or live contest details publicly during the event',
-      'Organizer decisions on rules and scoring are final'
+    title: 'Contest conduct',
+    blocks: [
+      {
+        type: 'paragraph',
+        text:
+          'EXIT follows standard competitive programming expectations (similar in spirit to common online judges), adapted for our hybrid format. Highlights:'
+      },
+      {
+        type: 'list',
+        items: [
+          'No AI assistants, code generation tools, or outside help unless explicitly allowed in the final rules packet.',
+          'No collaboration during the individual round.',
+          'During the team round, work only with your registered teammates.',
+          'Do not share live problem statements, solutions, or sensitive contest details in public channels while the contest is running.',
+          'Any violation may lead to disqualification. Organizer rulings are final.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text:
+          'Bring a reliable computer and internet connection for online participation; in-person participants should follow on-site instructions from staff.'
+      }
     ]
   }
 ] as const
 
-const directors = [
-  { name: 'Aryan Patel', email: 'apatel@exeter.edu' },
-  { name: 'Chris Spencer', email: 'cspencer1@exeter.edu' },
-  { name: 'Maya Shah', email: 'mnshah@exeter.edu' },
-  { name: 'Robert Joo', email: 'sjoo@exeter.edu' }
+const tournamentDirectors = [
+  'Aaryan Patel',
+  'Gavin Zhou',
+  'Aaditya Bilikanti',
+  'Chris Spencer',
+  'Ura Shi'
 ] as const
 
 const gradeOptions = ['4', '5', '6', '7', '8', '9', '10', '11', '12', 'Postgraduate', 'Other'] as const
@@ -176,7 +189,6 @@ if (!appRoot) {
 }
 
 const app = appRoot
-let cleanupCanvas: (() => void) | null = null
 let clerk: Clerk | null = null
 let clerkReady = false
 let authActionInFlight = false
@@ -194,7 +206,7 @@ function escapeHtml(value: string): string {
 function getRoute(): Route {
   const hash = window.location.hash.replace(/^#/, '')
 
-  if (hash === '/schedule' || hash === '/about' || hash === '/register') {
+  if (hash === '/info' || hash === '/schedule' || hash === '/about' || hash === '/register') {
     return hash
   }
 
@@ -280,125 +292,164 @@ function navLink(route: Route, label: string, currentRoute: Route): string {
   return `<a class="nav-link${isActive}" href="#${route}">${label}</a>`
 }
 
-function renderScheduleTable(): string {
-  return schedule
-    .map(
-      row => `
-        <div class="schedule-table-row">
-          <div class="schedule-time">${escapeHtml(row.time)}</div>
-          <div class="schedule-event">${escapeHtml(row.title)}</div>
-          <div class="schedule-detail">${escapeHtml(row.detail)}</div>
-          <div class="schedule-location">${escapeHtml(row.location)}</div>
-        </div>`
-    )
-    .join('')
+function renderSiteFooter(): string {
+  const year = new Date().getFullYear()
+  return `
+    <footer class="site-footer" role="contentinfo">
+      <div class="site-footer-inner">
+        <div class="site-footer-brand">
+          <span class="site-footer-mark">${escapeHtml(eventSummary.shortName)}</span>
+          <span class="site-footer-tagline">${escapeHtml(eventSummary.name)}</span>
+        </div>
+        <p class="site-footer-contact">
+          <a href="mailto:${escapeHtml(contestContactEmail)}">${escapeHtml(contestContactEmail)}</a>
+        </p>
+        <p class="site-footer-legal">
+          © ${year} ${escapeHtml(eventSummary.club)} · Phillips Exeter Academy.
+          EXIT is a student-organized contest; logistics and policies follow organizer communications.
+        </p>
+      </div>
+    </footer>
+  `
 }
 
 function renderDirectors(): string {
-  return directors
+  const cards = tournamentDirectors
     .map(
-      director => `
-        <article class="person-card">
-          <h3>${escapeHtml(director.name)}</h3>
-          <a class="person-email" href="mailto:${escapeHtml(director.email)}">${escapeHtml(director.email)}</a>
-        </article>`
+      name => `
+        <div class="director-card">
+          <span class="director-card-name">${escapeHtml(name)}</span>
+          <span class="director-card-label">Tournament director</span>
+        </div>`
     )
     .join('')
+  return `<div class="director-grid">${cards}</div>`
 }
 
 function renderHomeSections(): string {
+  function blockHtml(block: HomeContentBlock): string {
+    if (block.type === 'paragraph') {
+      return `<p class="punch home-prose">${escapeHtml(block.text)}</p>`
+    }
+    return `<ul class="fact-list home-prose-list">${block.items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+  }
+
   return homeSections
     .map(
       section => `
-        <article class="panel home-section-card">
-          <p class="section-label">${escapeHtml(section.label)}</p>
-          <h2>${escapeHtml(section.title)}</h2>
-          <p class="punch">${escapeHtml(section.body)}</p>
-          <ul class="fact-list">
-            ${section.items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
-          </ul>
-        </article>`
+        <section class="info-section">
+          <p class="info-section-label">${escapeHtml(section.label)}</p>
+          <h2 class="info-section-title">${escapeHtml(section.title)}</h2>
+          ${section.blocks.map(blockHtml).join('')}
+        </section>`
     )
     .join('')
 }
 
 function renderHomePage(): string {
   return `
-    <section class="hero-banner panel panel-feature">
-      <p class="section-label">Contest</p>
-      <h1>${escapeHtml(eventSummary.name)}</h1>
-      <p class="hero-lead">
-        A student-run online informatics competition for middle and high school students.
-      </p>
-      <p class="hero-meta">
-        ${escapeHtml(eventSummary.date)} · ${escapeHtml(eventSummary.venue)} · ${escapeHtml(eventSummary.city)}
-      </p>
-      <div class="hero-actions">
-        <a class="button button-primary" href="#/schedule">View Schedule</a>
-        <a class="button button-secondary" href="#/register">Register</a>
+    <div class="landing">
+      <div class="landing-hero">
+        <p class="landing-eyebrow">${escapeHtml(eventSummary.shortName)} 2026</p>
+        <h1 class="landing-name">${escapeHtml(eventSummary.name)}</h1>
+        <p class="landing-club">${escapeHtml(eventSummary.club)}</p>
+        <div class="landing-meta-block" aria-label="Event date and format">
+          <p class="landing-when">${escapeHtml(eventSummary.date)} · ${escapeHtml(eventSummary.venue)}</p>
+          <p class="landing-where">${escapeHtml(eventSummary.location)}</p>
+        </div>
+        <p class="landing-hook">
+          One day of problems, teamwork, and momentum—built for curious coders who like a real challenge.
+        </p>
+        <p class="landing-lead">
+          Middle and high school students compete in an individual round and a team round, online or on campus, run by students at Phillips Exeter Academy.
+        </p>
       </div>
-    </section>
+      <div class="landing-actions">
+        <a class="link-button link-button-primary" href="#/register">Register</a>
+        <a class="link-button link-button-quiet" href="#/info">How it works</a>
+      </div>
+      <p class="landing-contact">
+        Questions? Contact information is on the
+        <a href="#/info">Contest details</a> page and in the site footer.
+      </p>
+    </div>
+  `
+}
 
-    <section class="home-sections-grid" aria-label="Contest details">
+function renderInfoPage(): string {
+  return `
+    <header class="sheet-head">
+      <h1 class="sheet-title">Contest details</h1>
+      <p class="sheet-lede">
+        General information for EXIT 2026. Final specifics will be posted before the event.
+      </p>
+    </header>
+    <div class="info-article">
       ${renderHomeSections()}
-    </section>
+    </div>
+    <footer class="sheet-foot">
+      Questions?
+      <a href="mailto:${escapeHtml(contestContactEmail)}">${escapeHtml(contestContactEmail)}</a>
+    </footer>
   `
 }
 
 function renderSchedulePage(): string {
   return `
-    <section class="page-intro">
-      <p class="section-label">Schedule</p>
-      <h1>Schedule</h1>
-      <p class="page-copy">
-        The day is organized around two online competition rounds, a short break, and a closing session once judging is complete.
+    <header class="sheet-head">
+      <h1 class="sheet-title">Schedule</h1>
+      <p class="sheet-lede">
+        Times and sessions will be posted closer to the event.
       </p>
-    </section>
-
-    <section class="panel schedule-card">
-      <div class="schedule-table">
-        <div class="schedule-table-head">
-          <div>Time</div>
-          <div>Session</div>
-          <div>Notes</div>
-          <div>Location</div>
-        </div>
-        ${renderScheduleTable()}
-      </div>
-    </section>
+    </header>
+    <div class="sheet-block" aria-label="Schedule status">
+      <p class="sheet-tbd">TBD</p>
+      <p class="sheet-body">
+        Check-in, rounds, breaks, and awards are not finalized yet. Watch this page for updates, or use the contact in
+        the site footer.
+      </p>
+    </div>
   `
 }
 
 function renderAboutPage(): string {
   return `
-    <section class="page-intro">
-      <p class="section-label">About Us</p>
-      <h1>About Us</h1>
-      <p class="page-copy">
-        Exeter Computing Club runs EXIT as a student-led competition that aims to feel welcoming, thoughtful, and technically serious.
-      </p>
-    </section>
+    <div class="about-page">
+      <header class="about-hero">
+        <p class="about-hero-label">Phillips Exeter Academy</p>
+        <h1 class="sheet-title about-hero-title">About EXIT</h1>
+        <p class="about-hero-lede">
+          EXIT is the Exeter Informatics Tournament—a competitive programming event run by the
+          <strong>Exeter Computing Club</strong>. We care about clear rules, fair judging, and a contest day that feels
+          organized and welcoming for every team.
+        </p>
+      </header>
 
-    <section class="panel panel-accent">
-      <p class="section-label">Exeter Computing Club</p>
-      <h2>The club behind EXIT</h2>
-      <p class="punch">
-        We are PEA's CS club, open to all students regardless of experience. We do ML discussions, competitive programming practice (USACO), project building, and more—if you're looking for collaborators, a hackathon team, or just people to talk about code with, come find us.
-      </p>
-      <p class="punch">
-        One example of what we build:
-        <a href="https://exetercoursemap.vercel.app/" target="_blank" rel="noopener noreferrer">Exeter Course Map</a>
-        —browse 450+ courses, see prerequisite maps, and find classes you can actually take.
-      </p>
-    </section>
+      <section class="about-panel" aria-labelledby="about-club-heading">
+        <h2 id="about-club-heading" class="about-panel-title">The club behind the contest</h2>
+        <p class="about-panel-text">
+          The Exeter Computing Club is PEA's hub for CS: machine learning reading groups, USACO-style practice,
+          weekend builds, and hackathon crews. Whether you are new to code or already shipping projects, there is a seat
+          at the table.
+        </p>
+        <p class="about-panel-text">
+          Club members also ship tools for campus—see
+          <a href="https://exetercoursemap.vercel.app/" target="_blank" rel="noopener noreferrer">Exeter Course Map</a>
+          for 450+ courses, prerequisites, and planning paths through the curriculum.
+        </p>
+      </section>
 
-    <section class="panel">
-      <p class="section-label">Directors</p>
-      <h2>Tournament directors</h2>
-      <div class="people-grid">
+      <section class="about-panel about-panel-directors" aria-labelledby="about-directors-heading">
+        <div class="about-directors-head">
+          <h2 id="about-directors-heading" class="about-panel-title">Tournament directors</h2>
+          <p class="about-directors-sub">
+            Organizing EXIT ${escapeHtml(eventSummary.date)}. For questions, see the
+            <a href="#/info">Contest details</a> page or the site footer.
+          </p>
+        </div>
         ${renderDirectors()}
-      </div>
-    </section>
+      </section>
+    </div>
   `
 }
 
@@ -408,23 +459,18 @@ function renderRegisterPage(): string {
 
   if (!isSignedIn) {
     return `
-      <section class="page-intro">
-        <p class="section-label">Register</p>
-        <h1>Sign Up</h1>
-        <p class="page-copy">
-          Sign in first to continue with student registration.
-        </p>
-      </section>
+      <header class="sheet-head">
+        <h1 class="sheet-title">Register</h1>
+        <p class="sheet-lede">Sign in first to continue.</p>
+      </header>
 
       <section class="register-grid">
-        <section class="panel panel-feature register-panel" aria-label="Sign in required">
-          <p class="section-label">Registration Details</p>
-          <h2>Student account registration.</h2>
-          <p class="punch">
-            Registration is tied to your signed-in account so your email is captured automatically.
+        <section class="sheet-panel register-panel" aria-label="Sign in required">
+          <h2 class="sheet-panel-title">Student registration</h2>
+          <p class="sheet-body">
+            Your signed-in email is used for contest updates.
           </p>
           <div class="register-form-panel">
-            <p class="punch">Please sign in before filling out registration.</p>
             <div class="actions">
               <button
                 id="register-signin-button"
@@ -440,22 +486,17 @@ function renderRegisterPage(): string {
   }
 
   return `
-    <section class="page-intro">
-      <p class="section-label">Register</p>
-      <h1>Sign Up</h1>
-      <p class="page-copy">
-        Each student should sign up for an account using the form below. 
-      </p>
-    </section>
+    <header class="sheet-head">
+      <h1 class="sheet-title">Register</h1>
+      <p class="sheet-lede">One form per student. Use an email you check often.</p>
+    </header>
 
     <section class="register-grid">
-      <section class="panel panel-feature register-panel">
-        <p class="section-label">Registration Details</p>
-        <h2>Student account registration.</h2>
-        <p class="punch">
-          Fill out the form below to register for an account. Please log in using an email address that you check regularly, as we will send important contest information and updates to the email you provide during registration.
+      <section class="sheet-panel register-panel">
+        <h2 class="sheet-panel-title">Your details</h2>
+        <p class="sheet-body">
+          Signed in as <strong>${escapeHtml(signedInEmail ?? '')}</strong>.
         </p>
-        <p class="register-login-text">Signed in as ${escapeHtml(signedInEmail ?? '')}.</p>
         <section class="register-form-panel" aria-label="Registration form">
           <form id="register-form" novalidate>
             <div class="form-stack">
@@ -683,7 +724,6 @@ function setupRegisterForm() {
 
 function renderApp() {
   const currentRoute = getRoute()
-  const hasGraph = currentRoute === '/'
   const isSignedIn = Boolean(clerk?.user)
   const authButtonLabel = !clerkReady
     ? 'Auth...'
@@ -693,36 +733,35 @@ function renderApp() {
         ? 'Sign out'
         : 'Sign in'
   const page =
-    currentRoute === '/schedule'
-      ? renderSchedulePage()
-      : currentRoute === '/about'
-        ? renderAboutPage()
-        : currentRoute === '/register'
-          ? renderRegisterPage()
-          : renderHomePage()
-
-  cleanupCanvas?.()
-  cleanupCanvas = null
+    currentRoute === '/info'
+      ? renderInfoPage()
+      : currentRoute === '/schedule'
+        ? renderSchedulePage()
+        : currentRoute === '/about'
+          ? renderAboutPage()
+          : currentRoute === '/register'
+            ? renderRegisterPage()
+            : renderHomePage()
 
   app.innerHTML = `
-    ${hasGraph ? '<div class="page-bg" aria-hidden="true"><canvas id="hero-viz" width="800" height="600"></canvas></div>' : ''}
-    <div class="page-shell${hasGraph ? ' has-graph' : ''}">
+    <div class="page-shell">
       <header class="site-header">
         <a class="brand" href="#/" aria-label="EXIT contest page">
           <img class="brand-mark" src="${eccLogoUrl}" alt="Exeter Computing Club logo" />
           <span class="brand-copy">
             <strong>${escapeHtml(eventSummary.name)}</strong>
-            <span>${escapeHtml(eventSummary.venue)} · ${escapeHtml(eventSummary.city)}</span>
+            <span>${escapeHtml(eventSummary.club)}</span>
           </span>
         </a>
         <nav class="site-nav" aria-label="Primary">
-          ${navLink('/', 'Contest', currentRoute)}
+          ${navLink('/', 'Home', currentRoute)}
+          ${navLink('/info', 'Details', currentRoute)}
           ${navLink('/schedule', 'Schedule', currentRoute)}
-          ${navLink('/about', 'About Us', currentRoute)}
+          ${navLink('/about', 'About', currentRoute)}
           ${navLink('/register', 'Register', currentRoute)}
           <button
             id="auth-button"
-            class="button button-secondary"
+            class="button button-secondary nav-auth"
             type="button"
             ${!clerkReady || authActionInFlight ? 'disabled' : ''}
           >${authButtonLabel}</button>
@@ -730,17 +769,13 @@ function renderApp() {
       </header>
 
       <main class="page-content">
-        ${page}
+        <div class="main-inner">
+          ${page}
+        </div>
       </main>
+      ${renderSiteFooter()}
     </div>
   `
-
-  if (hasGraph) {
-    const viz = document.querySelector<HTMLCanvasElement>('#hero-viz')
-    if (viz) {
-      cleanupCanvas = mountNetworkCanvas(viz)
-    }
-  }
 
   if (currentRoute === '/register') {
     setupRegisterForm()
